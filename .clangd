@@ -1,0 +1,6 @@
+CompileFlags:
+  Add:
+    - "-I/usr/local/cuda/include"
+    - "-xcuda"                   # 强制按 CUDA 解析
+  Remove:
+    - "-forward-unknown-to-host-compiler"  # nvcc 特有,clang 不认
