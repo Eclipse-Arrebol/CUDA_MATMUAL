@@ -127,8 +127,8 @@ void benchmark_kernel(const char* name,
     free(h_C);
 }
 
-KernelFn g_kernels[] = {launch_dummy_kernel,launch_naive_kernel};
-const char* g_names[] = {"dummy_kernel","naive_kernel"};
+KernelFn g_kernels[] = {launch_dummy_kernel,launch_naive_kernel,launch_smem_kernel,launch_blocktiling_kernel,launch_2Dblocktiling_kernel};
+const char* g_names[] = {"dummy_kernel","naive_kernel","smem_kernel","blocktiling_kernel","Dblocktiling_kernel"};
 
 int main(int argc,char** argv)
 {
@@ -137,6 +137,16 @@ int main(int argc,char** argv)
     int K = 1024;
     int id=0;
     int num_kernels = sizeof(g_kernels) / sizeof(g_kernels[0]);
+    if (argc == 5) {
+        id = atoi(argv[1]);
+        M = atoi(argv[2]);
+        N = atoi(argv[3]);
+        K = atoi(argv[4]);
+    } else if (argc != 1) {
+        printf("Usage: %s [kernel_id M N K]\n", argv[0]);
+        printf("Example: %s 4 1024 1024 1024\n", argv[0]);
+        return 1;
+    }
     if (id < 0 || id >= num_kernels) {
         for(int i=0;i<num_kernels;i++)
         {
@@ -144,19 +154,9 @@ int main(int argc,char** argv)
         }
         return 1;
     }
-    if (argc == 5) {
-        id = atoi(argv[1]);
-        M = atoi(argv[2]);
-        N = atoi(argv[3]);
-        K = atoi(argv[4]);
-    } else if (argc != 1) {
-        printf("Usage: %s [M N K]\n", argv[0]);
-        printf("Example: %s 1024 1024 1024\n", argv[0]);
-        return 1;
-    }
 
-    int warmup_iters = 5;
-    int repeat_iters = 20;
+    int warmup_iters = 2;
+    int repeat_iters = 10;
 
     benchmark_kernel(g_names[id],
                      g_kernels[id],

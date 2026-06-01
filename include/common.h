@@ -15,6 +15,15 @@
     }                                                           \
 } while (0)
 
+#define CHECK_CUBLAS(call) do {                                              \
+    cublasStatus_t status = (call);                                          \
+    if (status != CUBLAS_STATUS_SUCCESS) {                                   \
+        printf("cuBLAS error %s:%d: status = %d\n",                         \
+               __FILE__, __LINE__, static_cast<int>(status));                \
+        std::exit(1);                                                        \
+    }                                                                        \
+} while (0)
+
 typedef void (*KernelFn)(int M, int N, int K, float alpha,
                          const float* A, const float* B,
                          float beta, float* C);
