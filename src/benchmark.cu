@@ -1,7 +1,49 @@
 #include "../include/common.h"
 #include "../include/kernels.h"
+#include "../include/06_autotuning.cuh"
 #include <cstdio>
 #include <cstdlib>
+
+struct Cfg { KernelFn fn; const char* name; };
+static const Cfg g_cfgs[] = {
+    { launch_at<64, 64,  8, 8, 4>, "64x64x8_8x4"   },
+    { launch_at<64, 64,  8, 8, 8>, "64x64x8_8x8"   },
+    { launch_at<128,128, 8, 8, 8>, "128x128x8_8x8" },
+    { launch_at<64, 64, 16, 8, 4>, "64x64x16_8x4"  },
+};
+static const int g_cfg_count = sizeof(g_cfgs)/sizeof(g_cfgs[0]);
+
+void run_autotune(int M,int N,int K){
+    size_t bytes_A=(size_t)M*K*sizeof(float);   // size_t! 防溢出(你文档的规矩)
+    size_t bytes_B=(size_t)K*N*sizeof(float);
+    size_t bytes_C=(size_t)M*N*sizeof(float);
+    float *dA,*dB,*dC;
+    CHECK_CUDA(cudaMalloc(&dA,bytes_A));
+    CHECK_CUDA(cudaMalloc(&dB,bytes_B));
+    CHECK_CUDA(cudaMalloc(&dC,bytes_C));
+    // init dA,dB(随便填或复用 init_matrix)
+
+    cudaEvent_t s,e; cudaEventCreate(&s); cudaEventCreate(&e);
+    double flop = 2.0*M*N*K;
+
+    for(int i=0;i<g_cfg_count;i++){
+        // warmup 一发(丢弃首发抖动)
+        g_cfgs[i].fn(M,N,K,1.0f,dA,dB,0.0f,dC);
+        cudaDeviceSynchronize();
+        // 计时(跑几次取最优)
+        float best=1e30f;
+        for(int r=0;r<3;r++){
+            cudaEventRecord(s);
+            g_cfgs[i].fn(M,N,K,1.0f,dA,dB,0.0f,dC);
+            cudaEventRecord(e); cudaEventSynchronize(e);
+            float ms; cudaEventElapsedTime(&ms,s,e);
+            if(ms<best) best=ms;
+        }
+        printf("%-16s %8.2f GFLOPS  (%.2f ms)\n",
+               g_cfgs[i].name, flop/(best/1e3)/1e9, best);
+    }
+    cudaFree(dA);cudaFree(dB);cudaFree(dC);
+}
 
 
 __global__ void dummy_kernel(int M, int N, int K,
@@ -127,8 +169,13 @@ void benchmark_kernel(const char* name,
     free(h_C);
 }
 
-KernelFn g_kernels[] = {launch_dummy_kernel,launch_naive_kernel,launch_smem_kernel,launch_blocktiling_kernel,launch_2Dblocktiling_kernel};
-const char* g_names[] = {"dummy_kernel","naive_kernel","smem_kernel","blocktiling_kernel","Dblocktiling_kernel"};
+KernelFn g_kernels[] = {launch_dummy_kernel,launch_naive_kernel,launch_smem_kernel,launch_blocktiling_kernel,
+    launch_2Dblocktiling_kernel,launch_vectorized_kernel,
+    launch_at<64,64,8,8,4>,launch_at<64,64,16,8,4>,launch_at<64,64,8,8,8>};
+const char* g_names[] = {"dummy_kernel","naive_kernel",
+    "smem_kernel","blocktiling_kernel","Dblocktiling_kernel",
+    "vectorized_kernel","autotuning_kernel",
+    "7","8"};
 
 int main(int argc,char** argv)
 {
@@ -137,7 +184,14 @@ int main(int argc,char** argv)
     int K = 1024;
     int id=0;
     int num_kernels = sizeof(g_kernels) / sizeof(g_kernels[0]);
-    if (argc == 5) {
+    if(argc>=2 && strcmp(argv[1],"autotune")==0){
+        int M=argc>2?atoi(argv[2]):4096;
+        int N=argc>3?atoi(argv[3]):4096;
+        int K=argc>4?atoi(argv[4]):4096;
+        run_autotune(M,N,K);
+        return 0;
+    }
+    else if (argc == 5) {
         id = atoi(argv[1]);
         M = atoi(argv[2]);
         N = atoi(argv[3]);

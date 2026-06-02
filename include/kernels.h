@@ -21,3 +21,13 @@ void launch_2Dblocktiling_kernel(int M, int N, int K,
                          const float* B,
                          float beta,
                          float* C);
+
+void launch_vectorized_kernel(int M, int N, int K,
+                         float alpha,
+                         const float* A,
+                         const float* B,
+                         float beta,
+                         float* C);
+
+
+                         

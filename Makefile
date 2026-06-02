@@ -29,7 +29,7 @@ $(BENCH_TARGET): $(BENCH_OBJS) $(KERNEL_OBJS)
 $(VERIFY_TARGET): $(VERIFY_OBJS) $(KERNEL_OBJS)
 	$(NVCC) $^ -o $@ $(NVCCFLAGS) $(LDFLAGS)
 
-%.o: %.cu include/common.h include/kernels.h
+%.o: %.cu include/common.h include/kernels.h include/06_autotuning.cuh 
 	$(NVCC) -c $< -o $@ $(NVCCFLAGS)
 
 run: $(BENCH_TARGET)
