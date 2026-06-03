@@ -171,11 +171,12 @@ void benchmark_kernel(const char* name,
 
 KernelFn g_kernels[] = {launch_dummy_kernel,launch_naive_kernel,launch_smem_kernel,launch_blocktiling_kernel,
     launch_2Dblocktiling_kernel,launch_vectorized_kernel,
-    launch_at<64,64,8,8,4>,launch_at<64,64,16,8,4>,launch_at<64,64,8,8,8>};
+    launch_at<64,64,8,8,4>,launch_at<64,64,16,8,4>,launch_at<64,64,8,8,8>,
+    launch_warptile_kernel,launch_warptile_kernel};
 const char* g_names[] = {"dummy_kernel","naive_kernel",
     "smem_kernel","blocktiling_kernel","Dblocktiling_kernel",
     "vectorized_kernel","autotuning_kernel",
-    "7","8"};
+    "7","8","warptile_kernel","warptile_vec_kernel"};
 
 int main(int argc,char** argv)
 {

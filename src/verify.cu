@@ -180,8 +180,17 @@ void verify_kernel (const char* name,
     free(h_C_ref);
 }
 
-KernelFn g_kernels[] = {launch_cublas_ref,launch_naive_kernel,launch_smem_kernel,launch_blocktiling_kernel,launch_2Dblocktiling_kernel,launch_vectorized_kernel,launch_at<64,64,8,8,4>,launch_at<64,64,16,8,4>,launch_at<64,64,8,8,8>};
-const char* g_names[] = {"cuBLAS_kernel","naive_kernel","smem_kernel","blocktiling_kernel","Dblocktiling_kernel","vectorized_kernel","autotuning_kernel","7","8"};
+KernelFn g_kernels[] = {launch_cublas_ref,launch_naive_kernel,
+    launch_smem_kernel,launch_blocktiling_kernel,
+    launch_2Dblocktiling_kernel,launch_vectorized_kernel,
+    launch_at<64,64,8,8,4>,launch_at<64,64,16,8,4>,
+    launch_at<64,64,8,8,8>,launch_warptile_kernel,
+    launch_warptile_vec_kernel};
+const char* g_names[] = {"cuBLAS_kernel","naive_kernel",
+    "smem_kernel","blocktiling_kernel","Dblocktiling_kernel",
+    "vectorized_kernel","autotuning_kernel",
+    "7","8","warptile_kernel",
+    "warptile_vec_kernel"};
 
 int main(int argc,char** argv)
 {
