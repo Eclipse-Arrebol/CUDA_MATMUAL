@@ -1,7 +1,7 @@
 #include "../include/common.h"
 
 
-__global__ void warptile_vec_kernel(int M, int N, int K,
+__global__ void bank_conflict_kernel(int M, int N, int K,
                              float alpha,
                              const float* A,
                              const float* B,
@@ -15,7 +15,7 @@ __global__ void warptile_vec_kernel(int M, int N, int K,
     constexpr int WN = 64;
     constexpr int TM = 8;
     constexpr int TN = 4;
-    __shared__ float As[BK][BM];
+    __shared__ float As[BK][BM+4];
     __shared__ float Bs[BK][BN];
     constexpr int WSUBM = 4*TM;
     constexpr int WSUBN = 8*TN;
@@ -34,17 +34,13 @@ __global__ void warptile_vec_kernel(int M, int N, int K,
     float acc[WMITER*WNITER*TM*TN] = {0};
     for (int bk = 0; bk < K; bk += BK) 
     {
-        for(int load=0; load<1; load++){
-            int idx = (tid + load*128)*4;        // 0~511 全覆盖
+        for(int load=0; load<4; load++){
+            int idx = (tid + load*128);        // 0~511 全覆盖
             int as_r = idx / BK, as_c = idx % BK;   // As: 64×8
             // 算 global 地址、边界判断、填 As[as_r][as_c]
             int a_row = blockIdx.y * BM + as_r;
             int a_col = bk + as_c;
-            float4 t = reinterpret_cast<const float4*>(&A[a_row*K + a_col])[0];
-            As[as_c][as_r] = t.x;
-            As[as_c+1][as_r] = t.y;
-            As[as_c+2][as_r] = t.z;
-            As[as_c+3][as_r] = t.w;
+            As[as_c][as_r] = A[a_row*K + a_col];
         }
         for(int load=0; load<2; load++)
         {
@@ -62,13 +58,9 @@ __global__ void warptile_vec_kernel(int M, int N, int K,
             float regA[WMITER*TM];
             float regB[WNITER*TN];
             for (int wm = 0; wm < WMITER; wm++)
-                for (int i = 0; i < TM; i += 4) {
+                for (int i = 0; i < TM; i++) {            // step 4 → step 1
                     int row = warpRow*WM + wm*WSUBM + (laneIdx/8)*TM + i;
-                    float4 tmp = reinterpret_cast<float4*>(&As[k][row])[0];
-                    regA[wm*TM+i]   = tmp.x;
-                    regA[wm*TM+i+1] = tmp.y;
-                    regA[wm*TM+i+2] = tmp.z;
-                    regA[wm*TM+i+3] = tmp.w;
+                    regA[wm*TM+i] = As[k][row];           // 标量读
                 }
 
                     
@@ -131,7 +123,7 @@ __global__ void warptile_vec_kernel(int M, int N, int K,
     }
 }
 
-void launch_warptile_vec_kernel(int M, int N, int K,
+void launch_bank_conflict_kernel(int M, int N, int K,
                          float alpha,
                          const float* A,
                          const float* B,
@@ -144,7 +136,7 @@ void launch_warptile_vec_kernel(int M, int N, int K,
     dim3 block(128);
     dim3 grid(CEIL_DIV(N, BN), CEIL_DIV(M, BM), 1);
 
-    warptile_vec_kernel<<<grid, block>>>(M, N, K, alpha, A, B, beta, C);
+    bank_conflict_kernel<<<grid, block>>>(M, N, K, alpha, A, B, beta, C);
 
     CHECK_CUDA(cudaGetLastError());
 }
