@@ -3,7 +3,7 @@ NVCC := nvcc
 BENCH_TARGET := bench
 VERIFY_TARGET := verify
 
-ARCH := -arch=sm_75
+ARCH := -arch=sm_75 
 INCLUDES := -I include
 OPT := -O3
 

@@ -50,5 +50,12 @@ void launch_bank_conflict_kernel(int M, int N, int K,
                          float beta,
                          float* C);
 
+void launch_double_buffer_kernel(int M, int N, int K,
+                         float alpha,
+                         const float* A,
+                         const float* B,
+                         float beta,
+                         float* C);
+
 
                          

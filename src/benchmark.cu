@@ -3,6 +3,7 @@
 #include "../include/06_autotuning.cuh"
 #include <cstdio>
 #include <cstdlib>
+#include <cublas_v2.h>
 
 struct Cfg { KernelFn fn; const char* name; };
 static const Cfg g_cfgs[] = {
@@ -43,6 +44,30 @@ void run_autotune(int M,int N,int K){
                g_cfgs[i].name, flop/(best/1e3)/1e9, best);
     }
     cudaFree(dA);cudaFree(dB);cudaFree(dC);
+}
+
+
+void launch_cublas_ref(int M, int N, int K,
+                       float alpha,
+                       const float* A,
+                       const float* B,
+                       float beta,
+                       float* C)
+{
+    cublasHandle_t handle;
+    CHECK_CUBLAS(cublasCreate(&handle));
+
+    CHECK_CUBLAS(cublasSgemm(handle,
+                             CUBLAS_OP_N,
+                             CUBLAS_OP_N,
+                             N, M, K,
+                             &alpha,
+                             B, N,
+                             A, K,
+                             &beta,
+                             C, N));
+
+    CHECK_CUBLAS(cublasDestroy(handle));
 }
 
 
@@ -169,15 +194,16 @@ void benchmark_kernel(const char* name,
     free(h_C);
 }
 
-KernelFn g_kernels[] = {launch_dummy_kernel,launch_naive_kernel,launch_smem_kernel,launch_blocktiling_kernel,
+KernelFn g_kernels[] = {launch_cublas_ref,launch_naive_kernel,launch_smem_kernel,launch_blocktiling_kernel,
     launch_2Dblocktiling_kernel,launch_vectorized_kernel,
     launch_at<64,64,8,8,4>,launch_at<64,64,16,8,4>,launch_at<64,64,8,8,8>,
-    launch_warptile_kernel,launch_warptile_vec_kernel,launch_bank_conflict_kernel};
+    launch_warptile_kernel,launch_warptile_vec_kernel,launch_bank_conflict_kernel,
+    launch_double_buffer_kernel};
 const char* g_names[] = {"dummy_kernel","naive_kernel",
     "smem_kernel","blocktiling_kernel","Dblocktiling_kernel",
     "vectorized_kernel","autotuning_kernel",
     "7","8","warptile_kernel","warptile_vec_kernel",
-    "bank_conflict_kernel"};
+    "bank_conflict_kernel","double_buffer_kernel"};
 
 int main(int argc,char** argv)
 {
